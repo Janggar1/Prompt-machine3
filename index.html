@@ -26,6 +26,13 @@
         .copy-btn { background: #2d3745; color: #cbd5e1; border: none; border-radius: 6px; padding: 4px 10px; font-size: 11px; float: right; cursor: pointer; }
         .result-text { font-size: 13px; line-height: 1.5; color: #e2e8f0; margin-top: 8px; clear: both; }
     </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
 </head>
 <body>
 
@@ -61,12 +68,16 @@
     </div>
 </div>
 
-<script>
-    let base64Data = "";
+<script type="module">
+    import { GoogleGenAI } from '@google/generative-ai';
 
-    function handleFile(input) {
+    let base64Data = "";
+    let mimeType = "";
+
+    window.handleFile = function(input) {
         const file = input.files[0];
         if (file) {
+            mimeType = file.type;
             const reader = new FileReader();
             reader.onload = function(e) {
                 base64Data = e.target.result.split(',')[1];
@@ -78,7 +89,7 @@
         }
     }
 
-    function clearPreview() {
+    window.clearPreview = function() {
         document.getElementById('imageInput').value = '';
         document.getElementById('previewContent').innerHTML = '';
         document.getElementById('previewBox').classList.remove('active');
@@ -86,7 +97,7 @@
         base64Data = "";
     }
 
-    async function generatePrompt() {
+    window.generatePrompt = async function() {
         const apiKey = document.getElementById('apiKeyInput').value.trim();
         const resultText = document.getElementById('resultText');
         const resultWrapper = document.getElementById('resultWrapper');
@@ -98,28 +109,36 @@
         resultWrapper.classList.add('active');
         resultText.innerText = "AI sedang membaca detail gambar Anda...";
 
-        const instruksi = "Analyze this image and write a detailed, highly descriptive video generation prompt in English for tools like Runway, Luma, or Kling. Describe the character, clothing, background, exact lighting, and suggest a cinematic camera movement (like slow pan or tracking shot). Output only the prompt text.";
+        const instruksi = "Analyze this image and write a detailed, highly descriptive video generation prompt in English for AI video tools like Runway, Luma, or Kling. Describe the character, clothing, facial expression, background setting, exact atmospheric lighting, and suggest a cinematic camera movement (like slow pan, zoom in, or tracking shot) to bring this scene alive. Output ONLY the raw prompt text.";
 
         try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ contents: [{ parts: [{ text: instruksi }, { inlineData: { mimeType: "image/jpeg", data: base64Data } }] }] })
-            });
-            const data = await res.json();
-            resultText.innerText = data.candidates[0].content.parts[0].text.trim();
+            // Menggunakan library resmi Google AI
+            const ai = new GoogleGenAI({ apiKey: apiKey });
+            const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            
+            const imagePart = {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: mimeType
+                }
+            };
+
+            const result = await model.generateContent([instruksi, imagePart]);
+            const response = await result.response;
+            resultText.innerText = response.text().trim();
         } catch (e) {
-            resultText.innerText = "Gagal memproses. Pastikan API Key benar.";
+            console.error(e);
+            resultText.innerText = "Gagal memproses. Pastikan API Key Anda benar atau coba gambar lain.";
         } finally {
             document.getElementById('genBtn').innerText = "GENERATE PROMPT DARI GAMBAR";
             document.getElementById('genBtn').disabled = false;
         }
     }
 
-    function copyPrompt() {
+    window.copyPrompt = function() {
         navigator.clipboard.writeText(document.getElementById('resultText').innerText);
         alert("Prompt berhasil disalin!");
     }
 </script>
 </body>
-      </html>
+    </html>
