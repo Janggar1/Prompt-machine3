@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Machine AI</title>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background-color: #0d0f12; color: #ffffff; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        .container { width: 100%; max-width: 420px; background: #111418; border-radius: 28px; padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+        .header { text-align: center; margin-bottom: 24px; }
+        h1 { font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; }
+        .subtitle { font-size: 11px; color: #6c7a8c; letter-spacing: 2px; text-transform: uppercase; }
+        .card { background: #181c22; border-radius: 20px; padding: 16px; margin-bottom: 16px; border: 1px solid #222933; }
+        .card-title { font-size: 12px; font-weight: 600; color: #9ab0c7; margin-bottom: 10px; text-transform: uppercase; }
+        .upload-btn { background: #202730; border: 1px solid #2d3745; border-radius: 16px; padding: 20px; color: white; cursor: pointer; font-weight: bold; width: 100%; font-size: 14px; }
+        input[type="text"] { width: 100%; background: #202730; border: 1px solid #2d3745; border-radius: 12px; padding: 12px; color: white; outline: none; }
+        .preview-box { position: relative; background: #090b0d; border: 2px dashed #2d3745; border-radius: 16px; display: none; margin-top: 16px; justify-content: center; }
+        .preview-box.active { display: flex; }
+        .preview-box img { width: 100%; max-height: 240px; object-fit: contain; }
+        .delete-btn { position: absolute; top: 12px; right: 12px; background: #ea4335; border: none; border-radius: 50%; width: 32px; height: 32px; color: white; font-weight: bold; cursor: pointer; }
+        .generate-btn { width: 100%; background: #3b82f6; color: white; border: none; border-radius: 14px; padding: 14px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .generate-btn:disabled { background: #4b5563; cursor: not-allowed; }
+        .result-wrapper { margin-top: 16px; background: #090b0d; border: 1px solid #2d3745; border-radius: 12px; padding: 14px; display: none; }
+        .result-wrapper.active { display: block; }
+        .copy-btn { background: #2d3745; color: #cbd5e1; border: none; border-radius: 6px; padding: 4px 10px; font-size: 11px; float: right; cursor: pointer; }
+        .result-text { font-size: 13px; line-height: 1.5; color: #e2e8f0; margin-top: 8px; clear: both; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div style="color: #3b82f6; font-size: 24px;">✦</div>
+        <h1>Prompt Machine AI</h1>
+        <div class="subtitle">By Bayu Aghaskara</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">1. Masukkan API Key AI</div>
+        <input type="text" id="apiKeyInput" placeholder="Tempel Gemini API Key di sini">
+    </div>
+
+    <div class="card">
+        <div class="card-title">2. Upload Gambar</div>
+        <button class="upload-btn" onclick="document.getElementById('imageInput').click()">📷 PILIH GAMBAR</button>
+        <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleFile(this)">
+        
+        <div class="preview-box" id="previewBox">
+            <button class="delete-btn" onclick="clearPreview()">X</button>
+            <div id="previewContent" style="width: 100%;"></div>
+        </div>
+    </div>
+
+    <button class="generate-btn" id="genBtn" onclick="generatePrompt()" disabled>GENERATE PROMPT DARI GAMBAR</button>
+
+    <div class="result-wrapper" id="resultWrapper">
+        <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+        <div style="font-size: 11px; color: #6c7a8c; font-weight: bold;">HASIL PROMPT VIDEO:</div>
+        <p class="result-text" id="resultText"></p>
+    </div>
+</div>
+
+<script>
+    let base64Data = "";
+
+    function handleFile(input) {
+        const file = input.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                base64Data = e.target.result.split(',')[1];
+                document.getElementById('previewContent').innerHTML = `<img src="${e.target.result}">`;
+                document.getElementById('previewBox').classList.add('active');
+                document.getElementById('genBtn').disabled = false;
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function clearPreview() {
+        document.getElementById('imageInput').value = '';
+        document.getElementById('previewContent').innerHTML = '';
+        document.getElementById('previewBox').classList.remove('active');
+        document.getElementById('genBtn').disabled = true;
+        base64Data = "";
+    }
+
+    async function generatePrompt() {
+        const apiKey = document.getElementById('apiKeyInput').value.trim();
+        const resultText = document.getElementById('resultText');
+        const resultWrapper = document.getElementById('resultWrapper');
+        
+        if (!apiKey) { alert("Silakan isi API Key terlebih dahulu!"); return; }
+
+        document.getElementById('genBtn').innerText = "MENGANALISIS GAMBAR...";
+        document.getElementById('genBtn').disabled = true;
+        resultWrapper.classList.add('active');
+        resultText.innerText = "AI sedang membaca detail gambar Anda...";
+
+        const instruksi = "Analyze this image and write a detailed, highly descriptive video generation prompt in English for tools like Runway, Luma, or Kling. Describe the character, clothing, background, exact lighting, and suggest a cinematic camera movement (like slow pan or tracking shot). Output only the prompt text.";
+
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: [{ parts: [{ text: instruksi }, { inlineData: { mimeType: "image/jpeg", data: base64Data } }] }] })
+            });
+            const data = await res.json();
+            resultText.innerText = data.candidates[0].content.parts[0].text.trim();
+        } catch (e) {
+            resultText.innerText = "Gagal memproses. Pastikan API Key benar.";
+        } finally {
+            document.getElementById('genBtn').innerText = "GENERATE PROMPT DARI GAMBAR";
+            document.getElementById('genBtn').disabled = false;
+        }
+    }
+
+    function copyPrompt() {
+        navigator.clipboard.writeText(document.getElementById('resultText').innerText);
+        alert("Prompt berhasil disalin!");
+    }
+</script>
+</body>
+      </html>
